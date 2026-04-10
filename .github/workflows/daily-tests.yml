@@ -67,6 +67,9 @@ jobs:
         if: always()
         id: test_results
         run: |
+          # Format current date/time
+          echo "test_date=$(date -u +'%B %d, %Y at %H:%M UTC')" >> $GITHUB_OUTPUT
+          
           # Check if report exists
           if [ -f "test-reports/latest-report.html" ]; then
             echo "✅ Report found, extracting statistics..."
@@ -161,7 +164,7 @@ jobs:
                 <div class="header">
                   <h1>🔗 Tracking Links Test Report</h1>
                   <p>Automated redirect validation and performance testing</p>
-                  <p>📅 Test Executed: $(date -u +"%B %d, %Y at %H:%M UTC")</p>
+                  <p>📅 Test Executed: ${{ steps.test_results.outputs.test_date }}</p>
                 </div>
                 
                 <div class="content">
