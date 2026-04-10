@@ -32,20 +32,11 @@ This QA suite verifies:
 - ✅ **Redirect performance** and latency measurement
 - ✅ **Cross-browser compatibility**
 
-### System Under Test
 
-- **Test Website:** https://sp.athena-stageworker.xyz
-- **Test Page:** /apitl-tests
-- **Brand:** l-g-casino
-- **API Endpoint:** NextWork Tracking Link API (Staging)
-- **Back Office:** https://nextwork-staging.web.app/sales/tracking-links
 
 ---
 
-## 📦 Prerequisites
 
-### Required Access
 
-   - URL: https://sp.athena-stageworker.xyz/wp-admin
 mpm install to install all dependencies
 npm run test to execute all tests
