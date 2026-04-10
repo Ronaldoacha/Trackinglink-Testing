@@ -56,12 +56,35 @@ jobs:
         run: npm run test:ci
         continue-on-error: true
       
+      - name: Check test outputs
+        if: always()
+        run: |
+          echo "📁 Checking for test reports..."
+          ls -la test-reports/ || echo "⚠️ test-reports directory not found"
+          ls -la allure-results/ || echo "⚠️ allure-results directory not found"
+      
       - name: Extract test results
         if: always()
         id: test_results
         run: |
-          # Use Node.js script to extract stats from HTML report
-          node extract-test-stats.js >> $GITHUB_OUTPUT
+          # Check if report exists
+          if [ -f "test-reports/latest-report.html" ]; then
+            echo "✅ Report found, extracting statistics..."
+            node extract-test-stats.js >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ Report not found, using default values"
+            echo "total_tests=0" >> $GITHUB_OUTPUT
+            echo "passed_tests=0" >> $GITHUB_OUTPUT
+            echo "failed_tests=0" >> $GITHUB_OUTPUT
+            echo "avg_time=0" >> $GITHUB_OUTPUT
+            echo "test_status=NO_REPORT" >> $GITHUB_OUTPUT
+            echo "status_icon=⚠️" >> $GITHUB_OUTPUT
+            echo "status_color=#fff3cd" >> $GITHUB_OUTPUT
+          fi
+          
+          # Display what was captured for debugging
+          echo "Extracted values:"
+          cat $GITHUB_OUTPUT | tail -7
       
       - name: Generate Allure report
         if: always()

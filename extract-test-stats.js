@@ -10,11 +10,15 @@ function extractTestStats() {
   const reportPath = path.join(process.cwd(), 'test-reports', 'latest-report.html');
   
   if (!fs.existsSync(reportPath)) {
-    console.error('Report file not found:', reportPath);
-    process.exit(1);
+    console.error('❌ Report file not found:', reportPath);
+    console.error('Current directory:', process.cwd());
+    console.error('Looking for:', reportPath);
+    throw new Error('Report file not found');
   }
   
+  console.error('✅ Reading report from:', reportPath);
   const htmlContent = fs.readFileSync(reportPath, 'utf8');
+  console.error('📄 Report size:', htmlContent.length, 'bytes');
   
   // Extract statistics using regex patterns
   const patterns = {
@@ -36,6 +40,9 @@ function extractTestStats() {
     const match = htmlContent.match(pattern);
     if (match && match[1]) {
       stats[key] = match[1];
+      console.error(`✅ Extracted ${key}:`, match[1]);
+    } else {
+      console.error(`⚠️ Could not extract ${key}`);
     }
   }
   
@@ -44,7 +51,9 @@ function extractTestStats() {
   const statusIcon = stats.failed > 0 ? '❌' : (stats.total > 0 ? '✅' : '⚠️');
   const statusColor = stats.failed > 0 ? '#f8d7da' : (stats.total > 0 ? '#d4edda' : '#fff3cd');
   
-  // Output in GitHub Actions format
+  console.error('📊 Final status:', testStatus);
+  
+  // Output in GitHub Actions format (stdout only, no extra text)
   console.log(`total_tests=${stats.total}`);
   console.log(`passed_tests=${stats.passed}`);
   console.log(`failed_tests=${stats.failed}`);
