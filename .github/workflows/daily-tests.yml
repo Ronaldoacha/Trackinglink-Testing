@@ -52,8 +52,45 @@ jobs:
           echo "BACKOFFICE_URL=${{ secrets.BACKOFFICE_URL }}" >> .env
       
       - name: Run tests
+        id: test_run
         run: npm run test:ci
         continue-on-error: true
+      
+      - name: Extract test results
+        if: always()
+        id: test_results
+        run: |
+          if [ -f "test-reports/latest-report.html" ]; then
+            # Extract test statistics from HTML report
+            TOTAL=$(grep -oP 'TOTAL TESTS EXECUTED[^0-9]*\K\d+' test-reports/latest-report.html || echo "0")
+            PASSED=$(grep -oP 'SUCCESSFUL REDIRECTS[^0-9]*\K\d+' test-reports/latest-report.html || echo "0")
+            FAILED=$(grep -oP 'FAILED TESTS[^0-9]*\K\d+' test-reports/latest-report.html || echo "0")
+            AVG_TIME=$(grep -oP 'AVERAGE REDIRECT TIME[^0-9.]*\K[\d.]+' test-reports/latest-report.html || echo "0")
+            
+            echo "total_tests=$TOTAL" >> $GITHUB_OUTPUT
+            echo "passed_tests=$PASSED" >> $GITHUB_OUTPUT
+            echo "failed_tests=$FAILED" >> $GITHUB_OUTPUT
+            echo "avg_time=$AVG_TIME" >> $GITHUB_OUTPUT
+            
+            # Determine overall status
+            if [ "$FAILED" -gt 0 ]; then
+              echo "test_status=FAILED" >> $GITHUB_OUTPUT
+              echo "status_color=#f8d7da" >> $GITHUB_OUTPUT
+              echo "status_icon=❌" >> $GITHUB_OUTPUT
+            else
+              echo "test_status=PASSED" >> $GITHUB_OUTPUT
+              echo "status_color=#d4edda" >> $GITHUB_OUTPUT
+              echo "status_icon=✅" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "total_tests=0" >> $GITHUB_OUTPUT
+            echo "passed_tests=0" >> $GITHUB_OUTPUT
+            echo "failed_tests=0" >> $GITHUB_OUTPUT
+            echo "avg_time=0" >> $GITHUB_OUTPUT
+            echo "test_status=ERROR" >> $GITHUB_OUTPUT
+            echo "status_color=#fff3cd" >> $GITHUB_OUTPUT
+            echo "status_icon=⚠️" >> $GITHUB_OUTPUT
+          fi
       
       - name: Generate Allure report
         if: always()
@@ -85,7 +122,7 @@ jobs:
           server_port: 587
           username: ${{ secrets.EMAIL_USERNAME }}
           password: ${{ secrets.EMAIL_PASSWORD }}
-          subject: "Daily Test Report - ${{ job.status }}"
+          subject: "${{ steps.test_results.outputs.status_icon }} Test Report - ${{ steps.test_results.outputs.test_status }} (${{ steps.test_results.outputs.passed_tests }}/${{ steps.test_results.outputs.total_tests }} Passed)"
           to: ronaldo@doualadigitalimpact.com
           from: ${{ secrets.EMAIL_USERNAME }}
           html_body: |
@@ -93,46 +130,107 @@ jobs:
             <html>
             <head>
               <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-                .header { background-color: #0078d4; color: white; padding: 20px; text-align: center; }
-                .content { padding: 20px; }
-                .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
-                .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
-                .failure { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
-                .info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
-                .footer { background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #6c757d; }
-                a { color: #0078d4; text-decoration: none; }
-                a:hover { text-decoration: underline; }
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; }
+                .container { max-width: 800px; margin: 20px auto; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+                .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 30px 20px; text-align: center; }
+                .header h1 { margin: 0; font-size: 28px; }
+                .header p { margin: 10px 0 0 0; opacity: 0.9; }
+                .content { padding: 30px; }
+                .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin: 20px 0; }
+                .stat-card { background: #f8f9fa; border-left: 4px solid #667eea; padding: 15px; border-radius: 5px; }
+                .stat-card.passed { border-left-color: #28a745; background: #d4edda; }
+                .stat-card.failed { border-left-color: #dc3545; background: #f8d7da; }
+                .stat-card.total { border-left-color: #007bff; background: #d1ecf1; }
+                .stat-card.time { border-left-color: #ffc107; background: #fff3cd; }
+                .stat-label { font-size: 12px; text-transform: uppercase; color: #6c757d; font-weight: 600; margin-bottom: 5px; }
+                .stat-value { font-size: 32px; font-weight: bold; margin: 5px 0; }
+                .stat-card.passed .stat-value { color: #155724; }
+                .stat-card.failed .stat-value { color: #721c24; }
+                .stat-card.total .stat-value { color: #004085; }
+                .stat-card.time .stat-value { color: #856404; }
+                .status-banner { padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center; font-size: 18px; font-weight: 600; }
+                .status-banner.passed { background: #d4edda; color: #155724; border: 2px solid #c3e6cb; }
+                .status-banner.failed { background: #f8d7da; color: #721c24; border: 2px solid #f5c6cb; }
+                .info-section { background: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0; }
+                .info-section h3 { margin-top: 0; color: #495057; }
+                .info-item { margin: 8px 0; }
+                .info-item strong { color: #212529; }
+                .btn { display: inline-block; padding: 12px 24px; margin: 10px 5px; background: #667eea; color: white; text-decoration: none; border-radius: 5px; font-weight: 600; }
+                .btn:hover { background: #5568d3; }
+                .btn-secondary { background: #6c757d; }
+                .btn-secondary:hover { background: #5a6268; }
+                .footer { background: #f8f9fa; padding: 20px; text-align: center; font-size: 12px; color: #6c757d; border-top: 1px solid #dee2e6; }
               </style>
             </head>
             <body>
-              <div class="header">
-                <h1>🔍 Tracking Link API - Daily Test Report</h1>
-              </div>
-              <div class="content">
-                <div class="status ${{ job.status == 'success' && 'success' || 'failure' }}">
-                  <h2>Test Status: ${{ job.status }}</h2>
+              <div class="container">
+                <div class="header">
+                  <h1>🔗 Tracking Links Test Report</h1>
+                  <p>Automated redirect validation and performance testing</p>
+                  <p>📅 Test Executed: $(date -u +"%B %d, %Y at %H:%M UTC")</p>
                 </div>
-                <div class="info">
-                  <p><strong>Run Number:</strong> ${{ github.run_number }}</p>
-                  <p><strong>Date:</strong> ${{ github.event.repository.updated_at }}</p>
-                  <p><strong>Triggered by:</strong> Scheduled Daily Run (8:00 AM)</p>
-                  <p><strong>Repository:</strong> ${{ github.repository }}</p>
+                
+                <div class="content">
+                  <div class="status-banner ${{ steps.test_results.outputs.failed_tests != '0' && 'failed' || 'passed' }}">
+                    ${{ steps.test_results.outputs.status_icon }} Overall Status: ${{ steps.test_results.outputs.test_status }}
+                  </div>
+                  
+                  <h2 style="color: #495057; border-bottom: 2px solid #667eea; padding-bottom: 10px;">📊 Test Results Summary</h2>
+                  
+                  <div class="stats-grid">
+                    <div class="stat-card total">
+                      <div class="stat-label">Total Tests</div>
+                      <div class="stat-value">${{ steps.test_results.outputs.total_tests }}</div>
+                      <div style="font-size: 12px; color: #6c757d;">CTAs tested on page</div>
+                    </div>
+                    
+                    <div class="stat-card passed">
+                      <div class="stat-label">✅ Successful</div>
+                      <div class="stat-value">${{ steps.test_results.outputs.passed_tests }}</div>
+                      <div style="font-size: 12px; color: #6c757d;">Valid URLs captured</div>
+                    </div>
+                    
+                    <div class="stat-card failed">
+                      <div class="stat-label">❌ Failed</div>
+                      <div class="stat-value">${{ steps.test_results.outputs.failed_tests }}</div>
+                      <div style="font-size: 12px; color: #6c757d;">No valid redirect found</div>
+                    </div>
+                    
+                    <div class="stat-card time">
+                      <div class="stat-label">⚡ Avg Time</div>
+                      <div class="stat-value">${{ steps.test_results.outputs.avg_time }}s</div>
+                      <div style="font-size: 12px; color: #6c757d;">Mean time to final URL</div>
+                    </div>
+                  </div>
+                  
+                  <div class="info-section">
+                    <h3>ℹ️ Run Information</h3>
+                    <div class="info-item"><strong>Run Number:</strong> #${{ github.run_number }}</div>
+                    <div class="info-item"><strong>Repository:</strong> ${{ github.repository }}</div>
+                    <div class="info-item"><strong>Branch:</strong> ${{ github.ref_name }}</div>
+                    <div class="info-item"><strong>Triggered by:</strong> ${{ github.event_name == 'schedule' && 'Scheduled Daily Run (8:00 AM)' || github.event_name == 'push' && 'Code Push' || 'Manual Trigger' }}</div>
+                    <div class="info-item"><strong>Commit:</strong> ${{ github.sha }}</div>
+                  </div>
+                  
+                  <h3 style="color: #495057;">📥 Download Reports</h3>
+                  <p>Detailed test reports and artifacts are available for download:</p>
+                  <div style="text-align: center; margin: 20px 0;">
+                    <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" class="btn">View Full Test Run</a>
+                    <a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts" class="btn btn-secondary">Download Reports</a>
+                  </div>
+                  
+                  <h3 style="color: #495057;">📋 Next Steps</h3>
+                  <div style="padding: 15px; background: ${{ steps.test_results.outputs.failed_tests != '0' && '#fff3cd' || '#d1ecf1' }}; border-radius: 5px; border-left: 4px solid ${{ steps.test_results.outputs.failed_tests != '0' && '#ffc107' || '#17a2b8' }};">
+                    ${{ steps.test_results.outputs.failed_tests != '0' && '<strong>⚠️ Action Required:</strong> ' || '<strong>✅ All Clear:</strong> ' }}
+                    ${{ steps.test_results.outputs.failed_tests != '0' && steps.test_results.outputs.failed_tests || 'No' }} test(s) failed. 
+                    ${{ steps.test_results.outputs.failed_tests != '0' && 'Please review the attached HTML report and investigate the failing CTAs. Check tracking link configuration in the back office.' || 'All tracking links are functioning correctly. No action required.' }}
+                  </div>
                 </div>
-                <h3>📊 Details</h3>
-                <p>The automated tests have been executed. Please review the results:</p>
-                <ul>
-                  <li><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Full Test Run</a></li>
-                  <li><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts">Download Test Reports</a></li>
-                </ul>
-                <h3>📋 Next Steps</h3>
-                <p>
-                  ${{ job.status == 'success' && '✅ All tests passed successfully. No action required.' || '❌ Some tests failed. Please review the report and investigate the issues.' }}
-                </p>
-              </div>
-              <div class="footer">
-                <p>This is an automated email from GitHub Actions. Do not reply to this email.</p>
-                <p>&copy; 2026 Tracking Link API Tests</p>
+                
+                <div class="footer">
+                  <p>This is an automated email from GitHub Actions. Do not reply to this email.</p>
+                  <p>🤖 Tracking Link API Automated Testing System | &copy; 2026</p>
+                </div>
               </div>
             </body>
             </html>
