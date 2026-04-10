@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Environment variables - NEVER commit
+.env
+.env.local
+.env.*.local
+
+# Test results
+test-results/
+allure-results/
+allure-report/
+playwright-report/
+test-reports/
+
+# Playwright
+playwright/.cache/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Screenshots and videos from failed tests
+screenshots/
+videos/
+
+# Coverage reports
+coverage/
+.nyc_output/
+OUTLOOK_EMAIL_SETUP.md
+GITHUB_SECRETS_SETUP.md
+SETUP_GUIDE.md
+TEST_REPORT_GUIDE.md
+QA_NEX-19845.md
+QA_NEX-19846.md

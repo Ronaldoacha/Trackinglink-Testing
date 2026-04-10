@@ -1,0 +1,139 @@
+name: Daily Automated Tests
+
+on:
+  schedule:
+    # Runs Monday-Friday at 8:00 AM UTC (adjust timezone as needed)
+    # Cron format: minute hour day-of-month month day-of-week
+    # 0 8 * * 1-5 means 8AM UTC, Monday through Friday
+    - cron: '0 8 * * 1-5'
+  
+  # Run on push to master/main branch
+  push:
+    branches:
+      - master
+      - main
+  
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm ci
+      
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+      
+      - name: Create .env file
+        run: |
+          echo "API_KEY=${{ secrets.API_KEY }}" >> .env
+          echo "API_EMAIL=${{ secrets.API_EMAIL }}" >> .env
+          echo "CF_ACCESS_CLIENT_ID_STAGING=${{ secrets.CF_ACCESS_CLIENT_ID_STAGING }}" >> .env
+          echo "CF_ACCESS_CLIENT_SECRET_STAGING=${{ secrets.CF_ACCESS_CLIENT_SECRET_STAGING }}" >> .env
+          echo "MICROSOFT_EMAIL=${{ secrets.MICROSOFT_EMAIL }}" >> .env
+          echo "MICROSOFT_PASSWORD=${{ secrets.MICROSOFT_PASSWORD }}" >> .env
+          echo "WP_ADMIN_URL=${{ secrets.WP_ADMIN_URL }}" >> .env
+          echo "WP_USERNAME=${{ secrets.WP_USERNAME }}" >> .env
+          echo "WP_PASSWORD=${{ secrets.WP_PASSWORD }}" >> .env
+          echo "TEST_WEBSITE=${{ secrets.TEST_WEBSITE }}" >> .env
+          echo "BACKOFFICE_URL=${{ secrets.BACKOFFICE_URL }}" >> .env
+      
+      - name: Run tests
+        run: npm run test:complete
+        continue-on-error: true
+      
+      - name: Generate Allure report
+        if: always()
+        run: |
+          npm install -g allure-commandline
+          allure generate ./allure-results -o ./allure-report --clean
+      
+      - name: Upload Allure report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-${{ github.run_number }}
+          path: allure-report/
+          retention-days: 30
+      
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports-${{ github.run_number }}
+          path: test-reports/
+          retention-days: 30
+      
+      - name: Send email notification
+        if: always()
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp-mail.outlook.com
+          server_port: 587
+          username: ${{ secrets.EMAIL_USERNAME }}
+          password: ${{ secrets.EMAIL_PASSWORD }}
+          subject: "Daily Test Report - ${{ job.status }}"
+          to: ronaldo@doualadigitalimpact.com
+          from: ${{ secrets.EMAIL_USERNAME }}
+          html_body: |
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .header { background-color: #0078d4; color: white; padding: 20px; text-align: center; }
+                .content { padding: 20px; }
+                .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+                .success { background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+                .failure { background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+                .info { background-color: #d1ecf1; border: 1px solid #bee5eb; color: #0c5460; }
+                .footer { background-color: #f8f9fa; padding: 15px; text-align: center; font-size: 12px; color: #6c757d; }
+                a { color: #0078d4; text-decoration: none; }
+                a:hover { text-decoration: underline; }
+              </style>
+            </head>
+            <body>
+              <div class="header">
+                <h1>🔍 Tracking Link API - Daily Test Report</h1>
+              </div>
+              <div class="content">
+                <div class="status ${{ job.status == 'success' && 'success' || 'failure' }}">
+                  <h2>Test Status: ${{ job.status }}</h2>
+                </div>
+                <div class="info">
+                  <p><strong>Run Number:</strong> ${{ github.run_number }}</p>
+                  <p><strong>Date:</strong> ${{ github.event.repository.updated_at }}</p>
+                  <p><strong>Triggered by:</strong> Scheduled Daily Run (8:00 AM)</p>
+                  <p><strong>Repository:</strong> ${{ github.repository }}</p>
+                </div>
+                <h3>📊 Details</h3>
+                <p>The automated tests have been executed. Please review the results:</p>
+                <ul>
+                  <li><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}">View Full Test Run</a></li>
+                  <li><a href="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts">Download Test Reports</a></li>
+                </ul>
+                <h3>📋 Next Steps</h3>
+                <p>
+                  ${{ job.status == 'success' && '✅ All tests passed successfully. No action required.' || '❌ Some tests failed. Please review the report and investigate the issues.' }}
+                </p>
+              </div>
+              <div class="footer">
+                <p>This is an automated email from GitHub Actions. Do not reply to this email.</p>
+                <p>&copy; 2026 Tracking Link API Tests</p>
+              </div>
+            </body>
+            </html>
+          attachments: test-reports/latest-report.html
