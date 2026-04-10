@@ -60,37 +60,8 @@ jobs:
         if: always()
         id: test_results
         run: |
-          if [ -f "test-reports/latest-report.html" ]; then
-            # Extract test statistics from HTML report
-            TOTAL=$(grep -oP 'TOTAL TESTS EXECUTED[^0-9]*\K\d+' test-reports/latest-report.html || echo "0")
-            PASSED=$(grep -oP 'SUCCESSFUL REDIRECTS[^0-9]*\K\d+' test-reports/latest-report.html || echo "0")
-            FAILED=$(grep -oP 'FAILED TESTS[^0-9]*\K\d+' test-reports/latest-report.html || echo "0")
-            AVG_TIME=$(grep -oP 'AVERAGE REDIRECT TIME[^0-9.]*\K[\d.]+' test-reports/latest-report.html || echo "0")
-            
-            echo "total_tests=$TOTAL" >> $GITHUB_OUTPUT
-            echo "passed_tests=$PASSED" >> $GITHUB_OUTPUT
-            echo "failed_tests=$FAILED" >> $GITHUB_OUTPUT
-            echo "avg_time=$AVG_TIME" >> $GITHUB_OUTPUT
-            
-            # Determine overall status
-            if [ "$FAILED" -gt 0 ]; then
-              echo "test_status=FAILED" >> $GITHUB_OUTPUT
-              echo "status_color=#f8d7da" >> $GITHUB_OUTPUT
-              echo "status_icon=❌" >> $GITHUB_OUTPUT
-            else
-              echo "test_status=PASSED" >> $GITHUB_OUTPUT
-              echo "status_color=#d4edda" >> $GITHUB_OUTPUT
-              echo "status_icon=✅" >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "total_tests=0" >> $GITHUB_OUTPUT
-            echo "passed_tests=0" >> $GITHUB_OUTPUT
-            echo "failed_tests=0" >> $GITHUB_OUTPUT
-            echo "avg_time=0" >> $GITHUB_OUTPUT
-            echo "test_status=ERROR" >> $GITHUB_OUTPUT
-            echo "status_color=#fff3cd" >> $GITHUB_OUTPUT
-            echo "status_icon=⚠️" >> $GITHUB_OUTPUT
-          fi
+          # Use Node.js script to extract stats from HTML report
+          node extract-test-stats.js >> $GITHUB_OUTPUT
       
       - name: Generate Allure report
         if: always()
