@@ -13,6 +13,7 @@
     "test:headed": "playwright test --headed",
     "test:debug": "playwright test --debug",
     "test:complete": "playwright test tests/tracking-links.spec.js -g \"Complete Test\" --headed --workers=1",
+    "test:ci": "playwright test tests/tracking-links.spec.js -g \"Complete Test\" --workers=1",
     "test:safe": "node validate-widgets.js && node run-tests-with-report.js",
     "allure:serve": "allure serve ./allure-results",
     "install-browsers": "playwright install",

@@ -52,7 +52,7 @@ jobs:
           echo "BACKOFFICE_URL=${{ secrets.BACKOFFICE_URL }}" >> .env
       
       - name: Run tests
-        run: npm run test:complete
+        run: npm run test:ci
         continue-on-error: true
       
       - name: Generate Allure report
